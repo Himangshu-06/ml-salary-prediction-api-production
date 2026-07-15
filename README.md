@@ -1,4 +1,4 @@
-# 💼 Employee Salary Prediction API
+#  Employee Salary Prediction API
 
 A full-stack machine learning project that predicts employee salaries based on demographic and professional attributes — trained with scikit-learn, served through a FastAPI backend, and paired with an interactive web frontend for real-time predictions.
 
@@ -6,7 +6,7 @@ Unlike a typical notebook-only ML project, this repo goes a step further: it pac
 
 ---
 
-## 📸 Demo
+##  Demo
 
 _(Add a screenshot or GIF of the frontend here once built)_
 
@@ -14,20 +14,20 @@ _(Add a screenshot or GIF of the frontend here once built)_
 
 ---
 
-## 🚀 Features
+##  Features
 
-- 📊 Exploratory Data Analysis on employee salary data
-- 🧹 Data preprocessing (encoding, scaling, missing value handling)
-- 🤖 Regression model trained and evaluated (Linear Regression, Random Forest)
-- ⚡ FastAPI backend serving real-time predictions
-- ✅ Input validation using Pydantic schemas
-- 🗄️ Request logging via SQLite
-- 🌐 Interactive frontend for live salary predictions
+-  Exploratory Data Analysis on employee salary data
+-  Data preprocessing (encoding, scaling, missing value handling)
+-  Regression model trained and evaluated (Linear Regression, Random Forest)
+-  FastAPI backend serving real-time predictions
+-  Input validation using Pydantic schemas
+-  Request logging via SQLite
+-  nteractive frontend for live salary predictions
 - 📄 Auto-generated API docs (Swagger UI via FastAPI)
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology |
 |---|---|
