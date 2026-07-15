@@ -23,7 +23,7 @@ _(Add a screenshot or GIF of the frontend here once built)_
 -  Input validation using Pydantic schemas
 -  Request logging via SQLite
 -  nteractive frontend for live salary predictions
-- 📄 Auto-generated API docs (Swagger UI via FastAPI)
+-  Auto-generated API docs (Swagger UI via FastAPI)
 
 ---
 
