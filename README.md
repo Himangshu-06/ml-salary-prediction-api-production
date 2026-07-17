@@ -6,12 +6,6 @@ Unlike a typical notebook-only ML project, this repo goes a step further: it pac
 
 ---
 
-##  Demo
-
-_(Add a screenshot or GIF of the frontend here once built)_
-
-**Live demo:** _(add deployed link here)_
-
 ---
 
 ##  Features
