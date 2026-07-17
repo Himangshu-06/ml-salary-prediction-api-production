@@ -174,7 +174,7 @@ See the [Contributing guide](../../wiki/Contributing) for more details.
 |---|---|
 | _Himangshu Keot_ | [@Himangshu-06](https://github.com/Himangshu-06) |
 | _yuvrajjit baruah_ | [@yuvrajjitbaruah](https://github.com/yuvrajjitbaruah) | 
-| _Nishrit Kashyap_ | _will be added_ | 
+| _Nishrit Kashyap_ | [@nishritkashyap](https://github.com/nishritkashyap) | 
 
 ---
 
