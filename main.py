@@ -1,161 +1,177 @@
-from fastapi import FastAPI, HTTPException
+"""
+CompAnalytics API — FastAPI Application Entry Point
+
+Configures CORS, request-ID middleware, structured logging,
+and loads the ML model on startup.
+"""
+
+import os
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-import joblib
-import pandas as pd
-import sqlite3
-from datetime import datetime
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
-# =====================================================
-# Load the saved model and related files
-# (these were created earlier by train_model.py)
-# =====================================================
-model = joblib.load("salary_model.pkl")
-scaler = joblib.load("scaler.pkl")
-model_columns = joblib.load("model_columns.pkl")
-model_info = joblib.load("model_info.pkl")
+from app.config import get_settings
+from app.logging_config import (
+    setup_logging,
+    get_logger,
+    generate_request_id,
+    request_id_var,
+)
+from app.routes import router
+from ml.model_service import model_service
 
-print("Loaded model:", model_info["model_name"])
+settings = get_settings()
+logger = get_logger("main")
 
-# =====================================================
-# Create the FastAPI app
-# =====================================================
-app = FastAPI(title="Employee Salary Prediction API")
 
-# this allows the frontend (running on a different port/file) to call this API
-# without the browser blocking the request
+# ── Lifespan (startup/shutdown) ───────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan — load model on startup."""
+    setup_logging(settings.api_log_level)
+    logger.info(
+        "starting",
+        env=settings.api_env,
+        cors_origins=settings.cors_origins,
+    )
+
+    # Resolve model path relative to api/ directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    model_path = os.path.join(base_dir, settings.model_path)
+    metadata_path = os.path.join(base_dir, settings.model_metadata_path)
+
+    try:
+        model_service.load(model_path, metadata_path)
+        logger.info("model_ready", version=model_service.model_version)
+    except FileNotFoundError:
+        logger.warning(
+            "model_not_found",
+            message="API starting without model. Run 'python -m ml.train' first.",
+        )
+    except Exception as e:
+        logger.error("model_load_error", error=str(e))
+
+    yield
+
+    logger.info("shutting_down")
+
+
+# ── App Creation ──────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="CompAnalytics API",
+    description=(
+        "ML-powered employee compensation intelligence — "
+        "predicts fair salary with explainable, data-backed benchmarks."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url="/redoc" if not settings.is_production else None,
+)
+
+
+# ── CORS Middleware ───────────────────────────────────────────────────
+# Explicit origins — never wildcard (*)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# =====================================================
-# Set up the database (SQLite)
-# =====================================================
 
-def init_db():
-    conn = sqlite3.connect("predictions.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS predictions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT,
-            age REAL,
-            gender TEXT,
-            education_level TEXT,
-            job_title TEXT,
-            years_experience REAL,
-            predicted_salary REAL
-        )
-    """)
-    conn.commit()
-    conn.close()
+# ── Request-ID Middleware ─────────────────────────────────────────────
 
-init_db()
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Inject a unique request ID into every request for tracing."""
+    req_id = generate_request_id()
+    request_id_var.set(req_id)
 
-# =====================================================
-# Define what a valid request looks like (Pydantic model)
-# =====================================================
-# this automatically checks incoming data - wrong types or
-# missing fields get rejected before our code even runs
+    start_time = time.time()
+    response = await call_next(request)
+    latency = round((time.time() - start_time) * 1000, 1)
 
-class EmployeeData(BaseModel):
-    age: float = Field(..., gt=15, lt=100, description="Employee age")
-    gender: str = Field(..., description="Male, Female, or Other")
-    education_level: str = Field(..., description="High School, Bachelor's, Master's, or PhD")
-    job_title: str = Field(..., description="Employee's job title")
-    years_experience: float = Field(..., ge=0, le=60, description="Years of work experience")
+    response.headers["X-Request-ID"] = req_id
+    response.headers["X-Response-Time"] = f"{latency}ms"
 
-# =====================================================
-# Helper function: turn user input into the exact format
-# the model expects (same columns, same order, one-hot encoded)
-# =====================================================
+    logger.info(
+        "request",
+        request_id=req_id,
+        method=request.method,
+        path=str(request.url.path),
+        status=response.status_code,
+        latency_ms=latency,
+    )
 
-def prepare_input(data: EmployeeData):
-    input_dict = {col: 0 for col in model_columns}
+    # Log request to Supabase Postgres (graceful fallback if Supabase not configured)
+    ip_address = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    clerk_user_id = request.headers.get("x-user-id")
+    from app.supabase_client import log_usage_to_supabase
+    log_usage_to_supabase(
+        endpoint=str(request.url.path),
+        method=request.method,
+        status_code=response.status_code,
+        latency_ms=latency,
+        request_id=req_id,
+        clerk_user_id=clerk_user_id,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
 
-    input_dict["Age"] = data.age
-    input_dict["Years of Experience"] = data.years_experience
-
-    gender_col = f"Gender_{data.gender}"
-    if gender_col in input_dict:
-        input_dict[gender_col] = 1
-
-    edu_col = f"Education Level_{data.education_level}"
-    if edu_col in input_dict:
-        input_dict[edu_col] = 1
-
-    # if the job title wasn't one of the top 20 seen during training,
-    # treat it as "Other" - same rule we used while training the model
-    job_title = data.job_title
-    if job_title not in model_info["top_job_titles"]:
-        job_title = "Other"
-    job_col = f"Job Title_{job_title}"
-    if job_col in input_dict:
-        input_dict[job_col] = 1
-
-    input_df = pd.DataFrame([input_dict])[model_columns]
-    return input_df
-
-# =====================================================
-# Routes (endpoints)
-# =====================================================
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "model": model_info["model_name"]}
+    return response
 
 
-@app.post("/predict")
-def predict_salary(data: EmployeeData):
-    try:
-        input_df = prepare_input(data)
+# ── Global Exception Handlers ────────────────────────────────────────
 
-        if model_info["uses_scaled_input"]:
-            input_final = scaler.transform(input_df)
-        else:
-            input_final = input_df
-
-        prediction = model.predict(input_final)[0]
-        prediction = round(float(prediction), 2)
-
-        # log this request into the database
-        conn = sqlite3.connect("predictions.db")
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO predictions
-            (timestamp, age, gender, education_level, job_title, years_experience, predicted_salary)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (
-            datetime.now().isoformat(),
-            data.age, data.gender, data.education_level,
-            data.job_title, data.years_experience, prediction
-        ))
-        conn.commit()
-        conn.close()
-
-        return {"predicted_salary": prediction}
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.exception_handler(ValidationError)
+async def validation_error_handler(request: Request, exc: ValidationError):
+    """Return 422 with structured error, never a raw stack trace."""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "validation_error",
+            "message": "Invalid input data",
+            "details": exc.errors(),
+        },
+    )
 
 
-@app.get("/stats")
-def get_stats():
-    conn = sqlite3.connect("predictions.db")
-    cursor = conn.cursor()
+@app.exception_handler(Exception)
+async def generic_error_handler(request: Request, exc: Exception):
+    """Catch-all — never leak internal errors to the client."""
+    logger.error("unhandled_exception", error=str(exc), exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "internal_error",
+            "message": "An unexpected error occurred. Please try again.",
+        },
+    )
 
-    cursor.execute("SELECT COUNT(*) FROM predictions")
-    total_predictions = cursor.fetchone()[0]
 
-    cursor.execute("SELECT AVG(predicted_salary) FROM predictions")
-    avg_salary = cursor.fetchone()[0]
+# ── Register Routes ──────────────────────────────────────────────────
 
-    conn.close()
+app.include_router(router)
 
+
+# ── Root Redirect ─────────────────────────────────────────────────────
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Root endpoint — redirect to docs or return basic info."""
     return {
-        "total_predictions": total_predictions,
-        "average_predicted_salary": round(avg_salary, 2) if avg_salary else 0
+        "name": "CompAnalytics API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/v1/health",
     }
