@@ -6,10 +6,17 @@
   <title>Salary Predict — ML-Powered Salary Estimator</title>
   <meta name="description" content="A single-page Swiss editorial salary prediction tool powered by FastAPI, Next.js, and Supabase.">
   <link rel="stylesheet" href="styles.css">
-  <!-- React & Recharts CDN for client rendering -->
+  <!-- React, ReactDOM, PropTypes & Recharts CDN for client rendering -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script>
+    if (typeof window !== 'undefined') {
+      window.PropTypes = window.PropTypes || (window.React && window.React.PropTypes);
+      if (window.React) window.React.PropTypes = window.PropTypes;
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.10.3/umd/Recharts.min.js"></script>
 </head>
 <body>
   <!-- Fixed Film-Grain Noise Overlay -->
@@ -41,7 +48,7 @@
 
       <!-- Band 2: Centre Core -->
       <div class="hero-core">
-        <svg class="asterisk-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg class="asterisk-svg" width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <g stroke="#0a0a0a" stroke-width="2.5">
             <line x1="22" y1="3" x2="22" y2="41"/>
             <line x1="3" y1="22" x2="41" y2="22"/>
