@@ -51,16 +51,57 @@ export const Waves: React.FC<WavesProps> = ({
     if (!ctx) return;
 
     const noise3D = createNoise3D();
-    let animationFrameId: number;
+    let animationFrameId = 0;
     let time = 0;
+    let isInViewport = false;
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     let isReducedMotion = mediaQuery.matches;
 
+    const stopAnimation = () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+      }
+    };
+
+    const startAnimation = () => {
+      if (!animationFrameId && !isReducedMotion && !document.hidden && isInViewport) {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+
     const handleMotionChange = (e: MediaQueryListEvent) => {
       isReducedMotion = e.matches;
+      if (isReducedMotion) {
+        stopAnimation();
+      } else {
+        startAnimation();
+      }
     };
     mediaQuery.addEventListener("change", handleMotionChange);
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopAnimation();
+      } else {
+        startAnimation();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange, { passive: true });
+
+    // IntersectionObserver to pause animation loop when scrolled out of view
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      isInViewport = entry.isIntersecting;
+      if (isInViewport) {
+        startAnimation();
+      } else {
+        stopAnimation();
+      }
+    }, { threshold: 0.01 });
+
+    observer.observe(container);
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
@@ -85,15 +126,20 @@ export const Waves: React.FC<WavesProps> = ({
       pointerRef.current.y = -1000;
     };
 
-    container.addEventListener("mousemove", handlePointerMove);
-    container.addEventListener("mouseleave", handlePointerLeave);
-    container.addEventListener("touchmove", handlePointerMove);
-    container.addEventListener("touchend", handlePointerLeave);
+    container.addEventListener("mousemove", handlePointerMove, { passive: true });
+    container.addEventListener("mouseleave", handlePointerLeave, { passive: true });
+    container.addEventListener("touchmove", handlePointerMove, { passive: true });
+    container.addEventListener("touchend", handlePointerLeave, { passive: true });
 
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", resize, { passive: true });
 
     const render = () => {
+      if (document.hidden || !isInViewport) {
+        stopAnimation();
+        return;
+      }
+
       const rect = container.getBoundingClientRect();
       const width = rect.width;
       const height = rect.height;
@@ -109,15 +155,17 @@ export const Waves: React.FC<WavesProps> = ({
       pointer.lx += pointer.vx;
       pointer.ly += pointer.vy;
 
-      const linesCount = Math.floor(height / 14);
-      const stepX = 12;
+      // Reduced point density (20px spacing) for optimal scroll FPS
+      const stepY = 20;
+      const stepX = 20;
+      const linesCount = Math.floor(height / stepY);
 
       ctx.strokeStyle = effectiveLineColor;
       ctx.lineWidth = 1;
       ctx.globalAlpha = 0.35;
 
       for (let i = 0; i <= linesCount; i++) {
-        const yBase = (height / linesCount) * i;
+        const yBase = stepY * i;
         ctx.beginPath();
 
         for (let x = 0; x <= width + stepX; x += stepX) {
@@ -155,17 +203,21 @@ export const Waves: React.FC<WavesProps> = ({
         ctx.fill();
       }
 
-      if (!isReducedMotion) {
+      if (!isReducedMotion && !document.hidden && isInViewport) {
         time += 1;
         animationFrameId = requestAnimationFrame(render);
+      } else {
+        animationFrameId = 0;
       }
     };
 
     render();
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      stopAnimation();
+      observer.disconnect();
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       mediaQuery.removeEventListener("change", handleMotionChange);
       container.removeEventListener("mousemove", handlePointerMove);
       container.removeEventListener("mouseleave", handlePointerLeave);
