@@ -152,13 +152,20 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = false;
       submitBtn.textContent = "Run Prediction →";
 
+      // Instantly update Predictions Over Time chart after prediction completes
+      if (typeof updatePredictionsChart === "function") {
+        updatePredictionsChart(predictedAmount, { age, education_level, job_title, years_experience });
+      }
+
       resultPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   }
 
   // ==========================================================================
-  // CHANGE 2 — RECHARTS MOUNTING (Model R² & Insights Stats)
+  // RECHARTS MOUNTING (Model R² & Insights Stats)
   // ==========================================================================
+  let updatePredictionsChart = null;
+
   function renderCharts() {
     if (typeof window.Recharts === "undefined" || typeof window.React === "undefined" || typeof window.ReactDOM === "undefined") {
       return;
@@ -182,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
           {
             data: r2Data,
             layout: "vertical",
-            margin: { top: 10, right: 30, left: 120, bottom: 10 }
+            margin: { top: 10, right: 40, left: 120, bottom: 10 }
           },
           window.React.createElement(XAxis, {
             type: "number",
@@ -215,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
             Bar,
             { dataKey: "r2", fill: "#0a0a0a", radius: 0, barSize: 24 },
             r2Data.map((entry, index) =>
-              window.React.createElement(Cell, { key: `cell-${index}`, fill: "#0a0a0a" })
+              window.React.createElement(Cell, { key: `cell-${index}`, fill: entry.model === "Random Forest" ? "#0a0a0a" : "#7a7a7a" })
             )
           )
         )
@@ -224,38 +231,60 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const r2Root = document.getElementById("r2-chart-root");
     if (r2Root) {
-      window.ReactDOM.render(window.React.createElement(R2Chart), r2Root);
+      if (window.ReactDOM.createRoot) {
+        window.ReactDOM.createRoot(r2Root).render(window.React.createElement(R2Chart));
+      } else {
+        window.ReactDOM.render(window.React.createElement(R2Chart), r2Root);
+      }
     }
 
     // 2. Insights Section: Predictions Over Time Chart
     const defaultStatsData = [
-      { time: "08:00", volume: 14 },
-      { time: "10:00", volume: 38 },
-      { time: "12:00", volume: 65 },
-      { time: "14:00", volume: 52 },
-      { time: "16:00", volume: 89 },
-      { time: "18:00", volume: 71 },
-      { time: "20:00", volume: 43 }
+      { time: "08:00", volume: 14, salary: 95000, role: "Software Engineer" },
+      { time: "10:00", volume: 38, salary: 110000, role: "Data Scientist" },
+      { time: "12:00", volume: 65, salary: 125000, role: "Product Manager" },
+      { time: "14:00", volume: 52, salary: 98000, role: "Data Analyst" },
+      { time: "16:00", volume: 89, salary: 135000, role: "DevOps Engineer" },
+      { time: "18:00", volume: 71, salary: 105000, role: "Financial Analyst" },
+      { time: "20:00", volume: 43, salary: 115000, role: "Software Engineer" }
     ];
 
     const StatsChart = () => {
       const [data, setData] = useState(defaultStatsData);
 
-      useEffect(() => {
-        async function fetchStats() {
-          try {
-            const res = await fetch(STATS_ENDPOINT);
-            if (res.ok) {
-              const json = await res.json();
-              if (json.time_series && Array.isArray(json.time_series)) {
-                setData(json.time_series);
-              }
+      const fetchStatsData = async () => {
+        try {
+          const res = await fetch(STATS_ENDPOINT);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.time_series && Array.isArray(json.time_series) && json.time_series.length > 0) {
+              setData(json.time_series);
             }
-          } catch {
-            // Keep default stats
           }
+        } catch {
+          // Keep default/local stats
         }
-        fetchStats();
+      };
+
+      useEffect(() => {
+        fetchStatsData();
+
+        updatePredictionsChart = (predictedSalary, inputs) => {
+          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          setData(prevData => {
+            const lastVol = prevData.length > 0 ? (prevData[prevData.length - 1].volume || 0) : 0;
+            const newPoint = {
+              time: nowStr,
+              volume: lastVol + 1,
+              salary: predictedSalary,
+              role: inputs ? inputs.job_title : "User Prediction",
+              education: inputs ? inputs.education_level : "",
+              experience: inputs ? inputs.years_experience : 0,
+              isUserPrediction: true
+            };
+            return [...prevData, newPoint];
+          });
+        };
       }, []);
 
       return window.React.createElement(
@@ -286,15 +315,32 @@ document.addEventListener("DOMContentLoaded", () => {
               fontSize: "12px",
               color: "#0a0a0a"
             },
-            formatter: (val) => [`${val} predictions`, "Volume"]
+            formatter: (val, name, props) => {
+              const item = props && props.payload ? props.payload : {};
+              const roleText = item.role ? ` · ${item.role}` : "";
+              const salaryText = item.salary ? ` (₹${Number(item.salary).toLocaleString("en-IN")})` : "";
+              return [`${val} predictions${roleText}${salaryText}`, "Volume & Details"];
+            }
           }),
           window.React.createElement(Line, {
             type: "monotone",
             dataKey: "volume",
             stroke: "#0a0a0a",
             strokeWidth: 1.5,
-            dot: { fill: "#0a0a0a", r: 3 },
-            activeDot: { fill: "#0a0a0a", r: 5 }
+            dot: (props) => {
+              const { cx, cy, payload } = props;
+              const isUser = payload && payload.isUserPrediction;
+              return window.React.createElement("circle", {
+                cx,
+                cy,
+                r: isUser ? 5 : 3,
+                fill: isUser ? "#0a0a0a" : "#0a0a0a",
+                stroke: isUser ? "#0a0a0a" : "none",
+                strokeWidth: isUser ? 2 : 0,
+                key: `dot-${props.index}`
+              });
+            },
+            activeDot: { fill: "#0a0a0a", r: 6 }
           })
         )
       );
@@ -302,7 +348,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const statsRoot = document.getElementById("stats-chart-root");
     if (statsRoot) {
-      window.ReactDOM.render(window.React.createElement(StatsChart), statsRoot);
+      if (window.ReactDOM.createRoot) {
+        window.ReactDOM.createRoot(statsRoot).render(window.React.createElement(StatsChart));
+      } else {
+        window.ReactDOM.render(window.React.createElement(StatsChart), statsRoot);
+      }
     }
   }
 
@@ -428,7 +478,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================================
-  // CHANGE 4 — SIMPLEX NOISE WAVE ANIMATION IN INSIGHTS
+  // CHANGE 4 — SIMPLEX NOISE WAVE ANIMATION IN INSIGHTS (OPTIMIZED)
   // ==========================================================================
   function initWavesCanvas() {
     const wavesContainer = document.getElementById("waves-root");
@@ -445,6 +495,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let time = 0;
     let animId = null;
+    let isInViewport = false;
 
     const pointer = { x: -1000, y: -1000, lx: -1000, ly: -1000, vx: 0, vy: 0 };
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -460,14 +511,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const rect = wavesContainer.getBoundingClientRect();
       pointer.x = e.clientX - rect.left;
       pointer.y = e.clientY - rect.top;
-    });
+    }, { passive: true });
 
     wavesContainer.addEventListener("mouseleave", () => {
       pointer.x = -1000;
       pointer.y = -1000;
-    });
+    }, { passive: true });
 
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", resize, { passive: true });
     resize();
 
     // Pseudo-simplex noise generator for standalone browser canvas
@@ -475,7 +526,62 @@ document.addEventListener("DOMContentLoaded", () => {
       return Math.sin(x * 0.01 + t * 0.02) * Math.cos(y * 0.01 + t * 0.015) + Math.sin(x * 0.02 - t * 0.01);
     }
 
+    let isReducedMotion = mediaQuery.matches;
+
+    function stopAnimation() {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
+    }
+
+    function startAnimation() {
+      if (!animId && !isReducedMotion && !document.hidden && isInViewport) {
+        animId = requestAnimationFrame(render);
+      }
+    }
+
+    // IntersectionObserver to ONLY run loop when in/near viewport
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      isInViewport = entry.isIntersecting;
+      if (isInViewport) {
+        startAnimation();
+      } else {
+        stopAnimation();
+      }
+    }, { threshold: 0.01 });
+
+    observer.observe(wavesContainer);
+
+    const handleMotionChange = (e) => {
+      isReducedMotion = e.matches;
+      if (isReducedMotion) {
+        stopAnimation();
+        render(); // render static frame once
+      } else {
+        startAnimation();
+      }
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleMotionChange);
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopAnimation();
+      } else {
+        startAnimation();
+      }
+    }, { passive: true });
+
     function render() {
+      if (document.hidden || !isInViewport) {
+        stopAnimation();
+        return;
+      }
+
       const rect = wavesContainer.getBoundingClientRect();
       const width = rect.width;
       const height = rect.height;
@@ -490,17 +596,17 @@ document.addEventListener("DOMContentLoaded", () => {
       pointer.lx += pointer.vx;
       pointer.ly += pointer.vy;
 
-      const linesCount = Math.floor(height / 14);
-      const stepX = 12;
+      // Reduced point grid density (20px spacing) for high FPS scrolling
+      const stepY = 20;
+      const stepX = 20;
+      const linesCount = Math.floor(height / stepY);
 
       ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 1;
       ctx.globalAlpha = 0.35;
 
-      const isReducedMotion = mediaQuery.matches;
-
       for (let i = 0; i <= linesCount; i++) {
-        const yBase = (height / linesCount) * i;
+        const yBase = stepY * i;
         ctx.beginPath();
 
         for (let x = 0; x <= width + stepX; x += stepX) {
@@ -533,9 +639,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.fill();
       }
 
-      if (!isReducedMotion) {
+      if (!isReducedMotion && !document.hidden && isInViewport) {
         time += 1;
         animId = requestAnimationFrame(render);
+      } else {
+        animId = null;
       }
     }
 
