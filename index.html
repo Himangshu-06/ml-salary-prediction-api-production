@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Salary Predict — ML-Powered Salary Estimator</title>
+  <title>CompAnalytics — ML-Powered Salary Estimator</title>
   <meta name="description" content="A single-page Swiss editorial salary prediction tool powered by FastAPI, Next.js, and Supabase.">
+  <link rel="icon" type="image/png" href="Logo.png">
+  <link rel="apple-touch-icon" href="Logo.png">
   <link rel="stylesheet" href="styles.css">
   <!-- React, ReactDOM, PropTypes & Recharts CDN for client rendering -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -24,7 +26,7 @@
 
   <!-- Sticky Top Navigation -->
   <header class="nav">
-    <a href="#hero" class="nav-brand">Salary Predict — ML API</a>
+    <a href="/" class="nav-brand" aria-label="CompAnalytics Home"><img src="FullLogo.png" alt="CompAnalytics" style="height: 36px; width: auto;" /></a>
     <nav aria-label="Main Navigation">
       <ul class="nav-links">
         <li><a href="#predict" class="nav-link">Predict</a></li>
@@ -297,15 +299,15 @@
         a number.
       </h2>
 
-      <a href="https://github.com" target="_blank" rel="noopener noreferrer" class="foot-link">View the Source ↗</a>
+      <p class="foot-about">Built as part of ML Internship at Assam Skill University.</p>
+
+      <a href="https://github.com/ASU-ML-Project/ML-Salary-Prediction-Production" target="_blank" rel="noopener noreferrer" class="foot-link">View the Source ↗</a>
 
       <div class="foot-grid">
         <div class="foot-col">
           <h3>Project</h3>
           <ul>
-            <li><a href="#predict">Live Demo ↗</a></li>
-            <li><a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub Repo ↗</a></li>
-            <li><a href="/docs" target="_blank" rel="noopener noreferrer">API Docs ↗</a></li>
+            <li><a href="https://github.com/ASU-ML-Project/ML-Salary-Prediction-Production/wiki" target="_blank" rel="noopener noreferrer">API Docs ↗</a></li>
           </ul>
         </div>
         <div class="foot-col">
@@ -316,18 +318,27 @@
             <li>Supabase</li>
           </ul>
         </div>
-        <div class="foot-col">
-          <h3>Colophon</h3>
-          <ul>
-            <li>Trained on 6,700+ salary records.</li>
-            <li>Two colours. No exceptions.</li>
-            <li>Built as a full-stack ML capstone.</li>
+        <div class="foot-col foot-col-team">
+          <h3>Team</h3>
+          <ul class="team-list">
+            <li class="team-member">
+              <a href="https://www.linkedin.com/in/himangshukeot" target="_blank" rel="noopener noreferrer" class="team-link">Himangshu Keot ↗</a>
+              <a href="mailto:keothimangshu@gmail.com" class="team-email">keothimangshu@gmail.com</a>
+            </li>
+            <li class="team-member">
+              <a href="https://www.linkedin.com/in/yuvrajjitbaruah" target="_blank" rel="noopener noreferrer" class="team-link">Yuvrajjit Baruah ↗</a>
+              <a href="mailto:dev.yuvrajjitbaruah@gmail.com" class="team-email">dev.yuvrajjitbaruah@gmail.com</a>
+            </li>
+            <li class="team-member">
+              <a href="https://www.linkedin.com/in/nishritkashyap" target="_blank" rel="noopener noreferrer" class="team-link">Nishrit Kashyap ↗</a>
+              <a href="mailto:kashyapnishrit@gmail.com" class="team-email">kashyapnishrit@gmail.com</a>
+            </li>
           </ul>
         </div>
       </div>
 
       <div class="foot-legal">
-        <span>© 2026 Salary Predict</span>
+        <span>© 2026 CompAnalytics. All rights reserved.</span>
         <span>A model is a guess with good manners</span>
         <span>Assam — India</span>
       </div>
