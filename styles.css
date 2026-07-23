@@ -430,7 +430,8 @@ h1.stmt {
    MAIN SECTIONS GENERAL
    -------------------------------------------------------------------------- */
 section.main-sec {
-  padding: clamp(4.5rem, 9vw, 8.5rem) 0;
+  padding-top: clamp(4.5rem, 9vw, 8.5rem);
+  padding-bottom: clamp(4.5rem, 9vw, 8.5rem);
 }
 
 .sec-head {
@@ -711,14 +712,18 @@ section.main-sec {
    -------------------------------------------------------------------------- */
 .wave-panel {
   position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   min-height: clamp(20rem, 40vw, 32rem);
   background-color: #0a0a0a;
-  border: var(--hair);
+  border-top: var(--hair);
+  border-bottom: var(--hair);
   margin-bottom: clamp(3.5rem, 7vw, 6rem);
   overflow: hidden;
   display: flex;
   align-items: center;
-  padding: clamp(2rem, 5vw, 4rem);
+  padding: clamp(2rem, 5vw, 4rem) var(--pad);
 }
 
 .waves-layer {
@@ -797,7 +802,8 @@ footer#contact {
   background: #0a0a0a;
   color: #ffffff;
   margin-top: clamp(4.5rem, 9vw, 8.5rem);
-  padding: clamp(4.5rem, 9vw, 8.5rem) var(--pad) 2rem var(--pad);
+  padding-top: clamp(4.5rem, 9vw, 8.5rem);
+  padding-bottom: 2rem;
 }
 
 footer#contact ::selection {
